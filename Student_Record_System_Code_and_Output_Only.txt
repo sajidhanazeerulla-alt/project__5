@@ -1,0 +1,393 @@
+Student Record System – Code and Output
+Page 1
+1. C PROGRAM CODE
+File: student_record_system.c
+001  #include <stdio.h>
+002  #include <stdlib.h>
+003  #include <string.h>
+004  #include <ctype.h>
+005  
+006  #define DATA_FILE "students.dat"
+007  #define TEXT_FILE "students.txt"
+008  #define INITIAL_CAPACITY 2
+009  #define NAME_LEN 50
+010  #define DEPT_LEN 40
+011  #define GRADE_LEN 3
+012  
+013  typedef struct {
+014      int roll;
+015      char name[NAME_LEN];
+016      char department[DEPT_LEN];
+017      int year;
+018      float marks;
+019      char grade[GRADE_LEN];
+020  } Student;
+021  
+022  static int operation_count = 0; /* static storage class */
+023  
+024  void clearInput(void) {
+025      int ch;
+026      while ((ch = getchar()) != '\n' && ch != EOF) { }
+027  }
+028  
+029  void readLine(const char *prompt, char *buffer, size_t size) {
+030      printf("%s", prompt);
+031      if (fgets(buffer, (int)size, stdin) != NULL) {
+032          buffer[strcspn(buffer, "\n")] = '\0';
+033      } else {
+034          buffer[0] = '\0';
+035      }
+036  }
+037  
+038  int readInt(const char *prompt) {
+039      int value, ok;
+040      char line[100];
+041      do {
+042          readLine(prompt, line, sizeof(line));
+043          ok = sscanf(line, "%d", &value);
+044          if (ok != 1) printf("Invalid input. Enter a whole number.\n");
+045      } while (ok != 1);
+046      return value;
+047  }
+048  
+049  float readFloat(const char *prompt) {
+050      float value;
+051      int ok;
+052      char line[100];
+053      do {
+054          readLine(prompt, line, sizeof(line));
+055          ok = sscanf(line, "%f", &value);
+056          if (ok != 1) printf("Invalid input. Enter a number.\n");
+057      } while (ok != 1);
+058      return value;
+059  }
+060  
+061  void assignGrade(float marks, char grade[]) {
+062      if (marks >= 90) strcpy(grade, "A+");
+063      else if (marks >= 80) strcpy(grade, "A");
+064      else if (marks >= 70) strcpy(grade, "B");
+065      else if (marks >= 60) strcpy(grade, "C");
+
+
+Student Record System – Code and Output
+Page 2
+C PROGRAM CODE (continued)
+066      else if (marks >= 50) strcpy(grade, "D");
+067      else strcpy(grade, "F");
+068  }
+069  
+070  /* Read binary records using fread(); grow the array using realloc(). */
+071  int loadStudents(Student **students, int *capacity) {
+072      FILE *fp = fopen(DATA_FILE, "rb");
+073      Student item;
+074      int count = 0;
+075  
+076      *capacity = INITIAL_CAPACITY;
+077      *students = calloc((size_t)*capacity, sizeof(Student));
+078      if (*students == NULL) {
+079          printf("Memory allocation failed.\n");
+080          return -1;
+081      }
+082  
+083      if (fp == NULL) return 0; /* First run: data file does not exist yet. */
+084  
+085      while (fread(&item, sizeof(Student), 1, fp) == 1) {
+086          if (count == *capacity) {
+087              int newCapacity = (*capacity) * 2;
+088              Student *temp = realloc(*students,
+089                                      (size_t)newCapacity * sizeof(Student));
+090              if (temp == NULL) {
+091                  printf("Could not increase memory capacity.\n");
+092                  fclose(fp);
+093                  free(*students);
+094                  *students = NULL;
+095                  return -1;
+096              }
+097              *students = temp;
+098              *capacity = newCapacity;
+099          }
+100          (*students)[count++] = item;
+101      }
+102  
+103      if (ferror(fp)) printf("Warning: error while reading the data file.\n");
+104      fclose(fp);
+105      return count;
+106  }
+107  
+108  int saveStudents(const Student students[], int count) {
+109      FILE *fp = fopen(DATA_FILE, "wb");
+110      if (fp == NULL) {
+111          printf("Unable to open %s for writing.\n", DATA_FILE);
+112          return 0;
+113      }
+114      if (count > 0 && fwrite(students, sizeof(Student), (size_t)count, fp)
+115                       != (size_t)count) {
+116          printf("Error writing binary records.\n");
+117          fclose(fp);
+118          return 0;
+119      }
+120      if (fclose(fp) != 0) {
+121          printf("Error closing binary file.\n");
+122          return 0;
+123      }
+124      return 1;
+125  }
+126  
+127  /* Create a readable text-file copy using fprintf(). */
+128  void exportTextFile(const Student students[], int count) {
+129      FILE *fp = fopen(TEXT_FILE, "w");
+130      int i;
+
+
+Student Record System – Code and Output
+Page 3
+C PROGRAM CODE (continued)
+131      if (fp == NULL) {
+132          printf("Unable to create %s.\n", TEXT_FILE);
+133          return;
+134      }
+135      fprintf(fp, "Roll\\tName\\tDepartment\\tYear\\tMarks\\tGrade\n");
+136      for (i = 0; i < count; i++) {
+137          fprintf(fp, "%d\\t%s\\t%s\\t%d\\t%.2f\\t%s\n",
+138                  students[i].roll, students[i].name,
+139                  students[i].department, students[i].year,
+140                  students[i].marks, students[i].grade);
+141      }
+142      fclose(fp);
+143  }
+144  
+145  int findStudent(const Student students[], int count, int roll) {
+146      int i;
+147      for (i = 0; i < count; i++)
+148          if (students[i].roll == roll) return i;
+149      return -1;
+150  }
+151  
+152  void printHeader(void) {
+153      printf("\n%-8s %-20s %-15s %-6s %-8s %-5s\n",
+154             "Roll", "Name", "Department", "Year", "Marks", "Grade");
+155      printf("--------------------------------------------------------------------\n");
+156  }
+157  
+158  void printStudent(const Student *s) {
+159      printf("%-8d %-20s %-15s %-6d %-8.2f %-5s\n",
+160             s->roll, s->name, s->department, s->year, s->marks, s->grade);
+161  }
+162  
+163  void addStudent(Student **students, int *count, int *capacity) {
+164      Student s;
+165      Student *temp;
+166      s.roll = readInt("Enter roll number: ");
+167      if (findStudent(*students, *count, s.roll) != -1) {
+168          printf("That roll number already exists.\n");
+169          return;
+170      }
+171      readLine("Enter student name: ", s.name, sizeof(s.name));
+172      readLine("Enter department: ", s.department, sizeof(s.department));
+173      s.year = readInt("Enter year of study: ");
+174      do {
+175          s.marks = readFloat("Enter marks (0-100): ");
+176          if (s.marks < 0 || s.marks > 100)
+177              printf("Marks must be between 0 and 100.\n");
+178      } while (s.marks < 0 || s.marks > 100);
+179      assignGrade(s.marks, s.grade);
+180  
+181      if (*count == *capacity) {
+182          int newCapacity = (*capacity) * 2;
+183          temp = realloc(*students, (size_t)newCapacity * sizeof(Student));
+184          if (temp == NULL) {
+185              printf("Memory allocation failed; record not added.\n");
+186              return;
+187          }
+188          *students = temp;
+189          *capacity = newCapacity;
+190      }
+191      (*students)[(*count)++] = s;
+192      if (saveStudents(*students, *count)) {
+193          exportTextFile(*students, *count);
+194          printf("Student record added successfully.\n");
+195          operation_count++;
+
+
+Student Record System – Code and Output
+Page 4
+C PROGRAM CODE (continued)
+196      } else {
+197          (*count)--;
+198          printf("Record was not saved.\n");
+199      }
+200  }
+201  
+202  void displayStudents(const Student students[], int count) {
+203      int i;
+204      if (count == 0) { printf("No student records found.\n"); return; }
+205      printHeader();
+206      for (i = 0; i < count; i++) printStudent(&students[i]);
+207  }
+208  
+209  void searchStudent(const Student students[], int count) {
+210      int roll = readInt("Enter roll number to search: ");
+211      int index = findStudent(students, count, roll);
+212      if (index == -1) printf("Student record not found.\n");
+213      else { printHeader(); printStudent(&students[index]); }
+214  }
+215  
+216  void updateStudent(Student students[], int count) {
+217      int roll = readInt("Enter roll number to update: ");
+218      int index = findStudent(students, count, roll);
+219      if (index == -1) { printf("Student record not found.\n"); return; }
+220  
+221      printf("Enter the new details.\n");
+222      readLine("Enter student name: ", students[index].name,
+223               sizeof(students[index].name));
+224      readLine("Enter department: ", students[index].department,
+225               sizeof(students[index].department));
+226      students[index].year = readInt("Enter year of study: ");
+227      do {
+228          students[index].marks = readFloat("Enter marks (0-100): ");
+229          if (students[index].marks < 0 || students[index].marks > 100)
+230              printf("Marks must be between 0 and 100.\n");
+231      } while (students[index].marks < 0 || students[index].marks > 100);
+232      assignGrade(students[index].marks, students[index].grade);
+233  
+234      if (saveStudents(students, count)) {
+235          exportTextFile(students, count);
+236          printf("Student record updated successfully.\n");
+237          operation_count++;
+238      }
+239  }
+240  
+241  void deleteStudent(Student students[], int *count) {
+242      int roll = readInt("Enter roll number to delete: ");
+243      int index = findStudent(students, *count, roll);
+244      int i;
+245      if (index == -1) { printf("Student record not found.\n"); return; }
+246  
+247      for (i = index; i < *count - 1; i++)
+248          students[i] = students[i + 1];
+249      (*count)--;
+250      if (saveStudents(students, *count)) {
+251          exportTextFile(students, *count);
+252          printf("Student record deleted successfully.\n");
+253          operation_count++;
+254      }
+255  }
+256  
+257  void countStudents(int count) {
+258      printf("Total number of students: %d\n", count);
+259  }
+260  
+
+
+Student Record System – Code and Output
+Page 5
+C PROGRAM CODE (continued)
+261  void filterByMarks(const Student students[], int count) {
+262      float limit = readFloat("Display students with marks greater than: ");
+263      int i, found = 0;
+264      for (i = 0; i < count; i++) {
+265          if (students[i].marks > limit) {
+266              if (!found) printHeader();
+267              printStudent(&students[i]);
+268              found = 1;
+269          }
+270      }
+271      if (!found) printf("No students found above %.2f marks.\n", limit);
+272  }
+273  
+274  int main(void) {
+275      Student *students = NULL;
+276      int count, capacity, choice;
+277  
+278      count = loadStudents(&students, &capacity);
+279      if (count < 0) return 1;
+280  
+281      printf("============================================\n");
+282      printf(" STUDENT RECORD AND FILE MANAGEMENT SYSTEM\n");
+283      printf("============================================\n");
+284  
+285      do {
+286          printf("\n1. Add Student Record\n");
+287          printf("2. Display All Records\n");
+288          printf("3. Search by Roll Number\n");
+289          printf("4. Update Student Record\n");
+290          printf("5. Delete Student Record\n");
+291          printf("6. Count Total Students\n");
+292          printf("7. Filter by Marks\n");
+293          printf("8. Exit\n");
+294  
+295          choice = readInt("Enter your choice: ");
+296          switch (choice) {
+297              case 1: addStudent(&students, &count, &capacity); break;
+298              case 2: displayStudents(students, count); break;
+299              case 3: searchStudent(students, count); break;
+300              case 4: updateStudent(students, count); break;
+301              case 5: deleteStudent(students, &count); break;
+302              case 6: countStudents(count); break;
+303              case 7: filterByMarks(students, count); break;
+304              case 8:
+305                  printf("Closing files and releasing memory...\n");
+306                  printf("Operations completed in this session: %d\n",
+307                         operation_count);
+308                  break;
+309              default: printf("Invalid choice. Please try again.\n");
+310          }
+311      } while (choice != 8);
+312  
+313      free(students);
+314      students = NULL;
+315      printf("Memory released. Thank you!\n");
+316      return 0;
+317  }
+
+
+Student Record System – Code and Output
+Page 6
+2. SAMPLE OUTPUT
+Example console output:
+============================================
+ STUDENT RECORD AND FILE MANAGEMENT SYSTEM
+============================================
+1. Add Student Record
+2. Display All Records
+3. Search by Roll Number
+4. Update Student Record
+5. Delete Student Record
+6. Count Total Students
+7. Filter by Marks
+8. Exit
+Enter your choice: 1
+Enter roll number: 101
+Enter student name: Anu
+Enter department: CSE
+Enter year of study: 1
+Enter marks (0-100): 92
+Student record added successfully.
+Enter your choice: 1
+Enter roll number: 102
+Enter student name: Ravi
+Enter department: ECE
+Enter year of study: 1
+Enter marks (0-100): 78
+Student record added successfully.
+Enter your choice: 2
+Roll     Name                 Department      Year   Marks    Grade
+--------------------------------------------------------------------
+101      Anu                  CSE             1      92.00    A+
+102      Ravi                 ECE             1      78.00    B
+Enter your choice: 3
+Enter roll number to search: 101
+Roll     Name                 Department      Year   Marks    Grade
+--------------------------------------------------------------------
+101      Anu                  CSE             1      92.00    A+
+Enter your choice: 6
+Total number of students: 2
+Enter your choice: 7
+Display students with marks greater than: 80
+Roll     Name                 Department      Year   Marks    Grade
+--------------------------------------------------------------------
+101      Anu                  CSE             1      92.00    A+
+Enter your choice: 8
+Closing files and releasing memory...
+Operations completed in this session: 2
+Memory released. Thank you!
